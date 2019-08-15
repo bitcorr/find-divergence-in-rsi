@@ -8,13 +8,13 @@ from ohlc import plot_ohlc
 from operator import itemgetter
 from scipy import signal
 
-
 class Window:
 
-    def __init__(self, df, window_length, *args, **kwargs):
+    def __init__(self, df, window_length, interval, *args, **kwargs):
         '''
         :param df: DataFrame object containing the data to take a window from
         :param window_length: (int) the length of the window (in terms of rows of df)
+        :param interval: the interval of the window (lowercase)
         :param args:
         :param kwargs:
             start_from: (int) index of df, that if is given, the window will start from there
@@ -38,6 +38,7 @@ class Window:
         self.w = deepcopy(df[start:start + window_length])
         self.len = window_length
         self.ext = {} # dict for extensions- for data related to the window
+        self.interval = interval
 
         if 'indicators' in kwargs:
             if 'rsi' in kwargs['indicators']:
@@ -52,7 +53,7 @@ class Window:
         for i, row in self.w.iterrows():
             if isinstance(row['Date'], str):
                 self.w.at[i,'Date'] = pd.to_datetime(row['Date'], dayfirst=True, format='%d/%m/%Y %H:%M')
-        self.dates_list = [self.w.iloc[0]['Date'] + pd.Timedelta(x,'h') for x in range(0,self.len)]
+        self.dates_list = [self.w.iloc[0]['Date'] + pd.Timedelta(x,self.interval) for x in range(0,self.len)]
 
         if self.use_df:
             self.df_index_of_last = self.w.index[-1] # note that this is the current end of window, represented by index on self.df
@@ -138,7 +139,7 @@ class Window:
         :return:
         '''
 
-        self.dates_list = [self.w.iloc[0]['Date'] + pd.Timedelta(x, 'h') for x in range(0, self.len)]
+        self.dates_list = [self.w.iloc[0]['Date'] + pd.Timedelta(x, self.interval) for x in range(0, self.len)]
 
         if not self.run_after_update:
             return
@@ -200,18 +201,18 @@ class Window:
 
         if 'more_forward' in kwargs and self.use_df:
             add = deepcopy(self.df.loc[(self.df['Date'] > self.w.iloc[-1]['Date']) & \
-                                       (self.df['Date'] <= self.w.iloc[-1]['Date'] + pd.Timedelta(int(kwargs['more_forward']), 'h'))])
+                                       (self.df['Date'] <= self.w.iloc[-1]['Date'] + pd.Timedelta(int(kwargs['more_forward']), self.interval))])
 
             if len(add.index) != kwargs['more_forward']:
                 raise ValueError('Can not plot window as "more_forward" value had number greater than what df has in' +\
                  ' front of it.\n"view" got {0} to add while df had only {1}.'.format(kwargs['more_forward'], len(add.index)))
 
             window = window.append(add, sort=True)
-            end_date += pd.Timedelta(int(kwargs['more_forward']), 'h')
+            end_date += pd.Timedelta(int(kwargs['more_forward']), self.interval)
 
         if 'more_backward' in kwargs and self.use_df:
             add = deepcopy(self.df.loc[(self.df['Date'] >= self.w.iloc[0]['Date'] - pd.Timedelta( \
-                                           int(kwargs['more_backward']), 'h')) & \
+                                           int(kwargs['more_backward']), self.interval)) & \
                                        (self.df['Date'] < self.w.iloc[0]['Date'])])
 
             if len(add.index) != kwargs['more_backward']:
@@ -219,7 +220,7 @@ class Window:
                 ' behind it.\n"view" got {0} to add while df had only {1}.'.format(kwargs['more_backward'], len(add.index)))
 
             window = add.append(window, sort=True)
-            start_date -= pd.Timedelta(int(kwargs['more_backward']), 'h')
+            start_date -= pd.Timedelta(int(kwargs['more_backward']), self.interval)
 
         window.set_index('Date', inplace=True)
 
@@ -230,11 +231,11 @@ class Window:
 
 
         fig, axes = plt.subplots(nrows=2, ncols=1, gridspec_kw={'height_ratios': [4, 1], 'hspace': 0}, sharex=True)
-        axes[0], r_args = plot_ohlc(window, start_date, end_date, 'H', return_ax=True, position=[0, 0.3, 1, 0.7],
+        axes[0], r_args = plot_ohlc(window, start_date, end_date, self.interval.upper(), return_ax=True, position=[0, 0.3, 1, 0.7],
                                          use_ax=axes[0])
 
 
-        date_range = [start_date + pd.Timedelta(x, 'h') for x in range(0, int(td) + 1)]
+        date_range = [start_date + pd.Timedelta(x, self.interval) for x in range(0, int(td) + 1)]
 
         axes[0].set_ylabel('Close')
 
@@ -642,6 +643,3 @@ class Window:
                     return (win_index, self.w.index[-1] - self.w.index[0])
 
         return False
-        
-        
-        
