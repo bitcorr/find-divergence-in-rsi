@@ -1,3 +1,14 @@
+import matplotlib
+from matplotlib import pyplot as plt
+import pandas as pd
+import datetime
+import numpy as np
+from copy import deepcopy
+from ohlc import plot_ohlc
+from operator import itemgetter
+from scipy import signal
+
+
 class Window:
 
     def __init__(self, df, window_length, *args, **kwargs):
